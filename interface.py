@@ -53,6 +53,27 @@ class Party:
         return f"Party ref.: {self.name}\nPrivate key: {self.private_key}\nPublic key: {self.public_key}\nShared: {self.shared_secret}"
     
 
+# ==============================================================================
+# Simulate a network
+# ==============================================================================
+class Pipe:
+    def __init__(self, partyA, partyB):
+        self.partyA = partyA
+        self.partyB = partyB
+        self.transmitted_messages_to_A = []
+        self.transmitted_messages_to_B = []
+
+    def transmit_A_to_B(self, message):
+        self.transmitted_messages_to_B.append(message)
+        self.partyB.register_public_key(message)
+
+    def transmit_B_to_A(self, message):
+        self.transmitted_messages_to_A.append(message)
+        self.partyA.register_public_key(message)
+
+    def get_total_trasmitted_bytes(self):
+        # TODO: implement
+        return len(self.transmitted_messages_to_A) + len(self.transmitted_messages_to_B)
 
 # Protocol class for abstract Diffie-Hellman
 class DH_interface:
@@ -95,6 +116,9 @@ class DH_Protocol:
         alice = Party(self.interfaceA, "Alice")
         bob = Party(self.interfaceB, "Bob")
 
+        # Create network
+        network = Pipe(alice, bob)
+
         # Generate private keys
         alice.generate_private_key()
         bob.generate_private_key()
@@ -104,8 +128,8 @@ class DH_Protocol:
         bob.compute_public_key()
 
         # Exchange public keys
-        alice.register_public_key(bob.public_key)
-        bob.register_public_key(alice.public_key)
+        network.transmit_A_to_B(alice.public_key)
+        network.transmit_B_to_A(bob.public_key)
 
         # Compute shared secrets
         alice.compute_shared_secret()
