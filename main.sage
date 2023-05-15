@@ -6,7 +6,8 @@
 # Date: Spring 2023
 # ==============================================================================
 
-import interface
+import msidh 
+import sidh
 import sage.all as sage
 
 
@@ -21,15 +22,18 @@ def attack_SIDH(public_params, target_secret):
 
 if __name__ == "__main__":
 
-    # ==============================================================================
+    """ # ==============================================================================
     # TEST SIDH
     # ==============================================================================
-
-    settings = interface.Baby_SIKE()
-    partyA = interface.SIDH_Party_A(settings)
-    partyB = interface.SIDH_Party_B(settings)
-
-    protocol = interface.DH_Protocol(partyA, partyB)
+    print("Testing SIDH protocol...")
+    ex = sidh.create_protocol(sidh.get_curve("DeFeo"))
 
     # Run protocol
-    protocol.run()
+    ex.run() """
+
+    # ==============================================================================
+    # TEST MSIDH
+    # ==============================================================================
+    print("Testing MSIDH protocol...")
+    settings = msidh.MSIDHpBaby()
+    ex = msidh.create_protocol(settings).run()
