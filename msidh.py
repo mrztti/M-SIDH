@@ -10,17 +10,23 @@ import math
 from sage.all import *
 from interface import DH_interface, DH_Protocol
 from colorama import Back, Style
+import logging
+import pickle
+from sage.misc.persist import SagePickler
+import threading
+import time
 
 class MSIDH_Parameters:
-    def __init__(self, lamb, f, p, E0, A, B):
+    def __init__(self, f, p, E0, A, B, Af, Bf, validate=True):
         '''
-        Auxiliary parameters:
-            lambda: security parameter -> t = t(lambda)
-        
         Public parameters:
+            f: Cofactor for p
+            p: A prime such that p = A*B*f - 1
             E0: supersingular curve defined over Fp2
             A, B: two coprime integers that are defines as the sum of t distinct small primes
-            p: A prime such that p = A*B*f - 1 
+            Af, Bf: list of factors of A and B (used to speed up calculations down the line)
+
+        Generated parameters:
             PA, QA: Basis of the torsion points of degree A, E0[A] = <PA, QA>
             PB, QB: Basis of the torsion points of degree B, E0[B] = <PB, QB>
 
@@ -34,24 +40,25 @@ class MSIDH_Parameters:
             the generated points are distinct
         '''
 
-        self.lamb = lamb
         self.f = f
         self.p = p
         self.E0 = E0
         self.A = A
         self.B = B
+        self.Af = Af
+        self.Bf = Bf
 
         # Calculate the points PA, QA, PB, QB
         self.PA, self.QA = ( B * G * f for G in E0.gens())
         self.PB, self.QB = ( A * G * f for G in E0.gens())
 
         # Verify the parameters
-        if not self.verify_parameters():
+        if validate and not self.verify_parameters():
             raise Exception("Invalid parameters")
         
 
     def __str__(self):
-        return f"lamb: {self.lamb}\nf: {self.f}\np: {self.p}\nA: {self.A}\nB: {self.B}\nE0: {self.E0}\nPA: {self.PA}\nQA: {self.QA}\nPB: {self.PB}\nQB: {self.QB}"
+        return f"f: {self.f}\np: {self.p}\nA: {self.A}\nB: {self.B}\nE0: {self.E0}\nPA: {self.PA}\nQA: {self.QA}\nPB: {self.PB}\nQB: {self.QB}"
 
 
     def verify_parameters(self):
@@ -161,24 +168,52 @@ class MSIDH_Parameters:
         
         print(f"{Back.LIGHTGREEN_EX}==== SIDH parameters are valid ==== {Style.RESET_ALL}")
         return True
-        
 
 class MSIDHp128(MSIDH_Parameters):
     def __init__(self):
-        f =  537
-        lamb = 256
-        t = 840
+        f =  10
+        t = 572
         pari.allocatemem(1<<32)
         print(f"{Back.LIGHTMAGENTA_EX}GENERATING THE SETTINGS...{Style.RESET_ALL}")
         # Get the lambda smallest primes
         primes = Primes()
-        primes_list = []
+        primes_list = [primes.unrank(0) ** 2]
         # collect the primes
-        for i in range(t):
-            if i < lamb:
-                primes_list.append(primes.unrank(i) ** 3)
-            else:
-                primes_list.append(primes.unrank(i))
+        for i in range(1,t):
+            primes_list.append(primes.unrank(i))
+
+        # A_l = elements of even index in list
+        # B_l = elements of odd index in list
+        A_l = primes_list[::2]
+        B_l = primes_list[1::2]
+
+        # Calculate A and B
+        A = prod(A_l)
+        B = prod(B_l)
+
+        # Calculate p
+        print(f"{Back.LIGHTMAGENTA_EX}CALCULATING THE PRIME...{Style.RESET_ALL}")
+        p = A * B * f - 1
+        logging.getLogger().setLevel(logging.DEBUG)
+        print (f"{Back.LIGHTMAGENTA_EX}GENERATING THE FIELD...{Style.RESET_ALL}")
+        F = FiniteField((p, 2), name='x', proof=False)
+        print (f"{Back.LIGHTMAGENTA_EX}GENERATING THE CURVE...{Style.RESET_ALL}")
+        E0 = EllipticCurve(F, [1,0])
+        print(f"{Back.LIGHTMAGENTA_EX}DONE{Style.RESET_ALL}")
+        logging.getLogger().setLevel(logging.WARNING)
+        super().__init__(f, p, E0, A, B, A_l, B_l)
+
+class MSIDHp32(MSIDH_Parameters):
+    def __init__(self, f=17):
+        t = 90
+        pari.allocatemem(1<<32)
+        print(f"{Back.LIGHTMAGENTA_EX}GENERATING THE SETTINGS...{Style.RESET_ALL}")
+        # Get the lambda smallest primes
+        primes = Primes()
+        primes_list = [primes.unrank(0) ** 2]
+        # collect the primes
+        for i in range(1,t):
+            primes_list.append(primes.unrank(i))
 
         # A_l = elements of even index in list
         # B_l = elements of odd index in list
@@ -191,15 +226,16 @@ class MSIDHp128(MSIDH_Parameters):
 
         # Calculate p
         p = A * B * f - 1
-        assert is_prime(p)
-        
+        """ if not is_prime(p):
+            print(f"retrying with f={f+1}")
+            MSIDHp32(f+1) """
+        logging.getLogger().setLevel(logging.DEBUG)
         F = FiniteField((p, 2), name='x')
         print (f"{Back.LIGHTMAGENTA_EX}GENERATING THE CURVE...{Style.RESET_ALL}")
         E0 = EllipticCurve(F, [1,0])
-        printf(f"{Back.LIGHTMAGENTA_EX}DONE{Style.RESET_ALL}")
-
-        super().__init__(lamb, f, p, E0, A, B)
-
+        print(f"{Back.LIGHTMAGENTA_EX}DONE{Style.RESET_ALL}")
+        logging.getLogger().setLevel(logging.WARNING)
+        super().__init__(f, p, E0, A, B, A_l, B_l, validate=False)
 
 class MSIDHpBaby(MSIDH_Parameters):
     def __init__(self, f=6):
@@ -237,12 +273,16 @@ class MSIDHpBaby(MSIDH_Parameters):
         assert E0.is_supersingular(proof=True)
         print(f"{Back.LIGHTMAGENTA_EX}DONE{Style.RESET_ALL}")
 
-        super().__init__(lamb, f, p, E0, A, B)
+        super().__init__(f, p, E0, A, B, A_l, B_l)
 
-def mewtwo(b):
+def mew(b):
         '''
         Sample an element x from Z/bZ where x ** 2 = 1 mod b
+
+        MAJOR HANGUP IN THIS FUNCTION
+
         '''
+        print(f"starting mewtwo: {b}")
         ring = IntegerModRing(b)
         one = IntegerMod(ring, 1)
         sqs = one.sqrt(all=True)
@@ -251,6 +291,38 @@ def mewtwo(b):
         res = sqs[rand]
         assert res ** 2 == 1
         print(f"mewtwo: {res}")
+        return res
+
+def mewtwo(b, factors):
+        '''
+        Sample an element x from Z/bZ where x ** 2 = 1 mod b
+
+        '''
+        # For each factor, find the square roots
+        roots = []
+        moduli = []
+        print(f"{Back.CYAN}Sampling MEWTWO on Z/{b}Z...{Style.RESET_ALL}")
+        for factor in factors:
+            # ZoomZoom super fast when the factor is prime
+            if is_prime(factor):
+                # Flip a coin!
+                if randrange(2) == 0:
+                    roots.append(Integer(1))
+                else:
+                    roots.append(Integer(factor - 1))
+                moduli.append(Integer(factor))
+            else:
+                ring = IntegerModRing(factor)
+                one = IntegerMod(ring, 1)
+                sqs = one.sqrt(all=True)
+                # Flip a coin!
+                rand = sqs[randrange(len(sqs))]
+                roots.append(Integer(rand))
+                moduli.append(Integer(factor))
+        # Use CRT to find the root
+        res = CRT_list(roots, moduli)
+        res = IntegerModRing(b)(res)
+        assert res ** 2 == 1
         return res
 
 class MSIDH_Party_A(DH_interface):
@@ -264,7 +336,7 @@ class MSIDH_Party_A(DH_interface):
         return f"{self.parameters}"
 
     def generate_private_key(self):
-        alpha = mewtwo(self.parameters.B)
+        alpha = mewtwo(self.parameters.B, self.parameters.Bf)
         a = randrange(self.parameters.A)
 
         return (alpha, a)
@@ -284,8 +356,6 @@ class MSIDH_Party_A(DH_interface):
         Sa = other_public_key[2]
         p1 = Ra.weil_pairing(Sa, pr.A)
         p2 = pr.PA.weil_pairing(pr.QA, pr.A) ** pr.B
-        print(f"p1: {p1}")
-        print(f"p2: {p2}")
         assert p1 == p2, "Weil pairing values do not match"
 
         LA = other_public_key[1] + private_key[1] * other_public_key[2]
@@ -303,7 +373,7 @@ class MSIDH_Party_B(DH_interface):
         return f"{self.parameters}"
 
     def generate_private_key(self):
-        beta = mewtwo(self.parameters.A)
+        beta = mewtwo(self.parameters.A, self.parameters.Af)
         b = randrange(self.parameters.B)
 
         return (beta, b)
@@ -323,16 +393,19 @@ class MSIDH_Party_B(DH_interface):
         Sb = other_public_key[2]
         p1 = Rb.weil_pairing(Sb, pr.B)
         p2 = pr.PB.weil_pairing(pr.QB, pr.B) ** pr.A
-        print(f"p1: {p1}")
-        print(f"p2: {p2}")
 
         assert p1 == p2, "Weil pairing values do not match"
 
         LB = other_public_key[1] + private_key[1] * other_public_key[2]
         psiB = other_public_key[0].isogeny(LB, algorithm="factored")
         return psiB.codomain().j_invariant()
-    
-def create_protocol(settings):
+
+
+def create_protocol(settings_class):
+    timer_start = time.time_ns()
+    settings = settings_class()
+    print(f"{Back.GREEN}DONE{Style.RESET_ALL} {(time.time_ns() - timer_start) / 1e9} s")
+
     partyA = MSIDH_Party_A(settings)
     partyB = MSIDH_Party_B(settings)
     return DH_Protocol(partyA, partyB)

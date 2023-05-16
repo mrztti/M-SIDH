@@ -7,6 +7,7 @@
 
 from sage.all import *
 from colorama import Back, Style
+import time
 
 # ==============================================================================
 # Helper functions
@@ -40,12 +41,20 @@ class Party:
         self.private_key = self.interface.generate_private_key()
 
     def compute_public_key(self):
+        try:
+            self.private_key
+        except AttributeError:
+            raise ValueError("Cannot compute public key without private key")
         self.public_key = self.interface.compute_public_key(self.private_key)
 
     def register_public_key(self, other_public_key):
         self.other_public_key = other_public_key
 
     def compute_shared_secret(self):
+        try:
+            self.private_key
+        except AttributeError:
+            raise ValueError("Cannot compute shared secret without private key")
         self.shared_secret = self.interface.compute_shared_secret(self.private_key, self.other_public_key)
 
     def __str__(self):
@@ -106,37 +115,65 @@ class DH_Protocol:
     def __str__(self):
         return f"DH_Protocol >> \nInterface 1 -->\n{self.interfaceA}\nInterface 2 --> \n{self.interfaceB}"
 
+    def generate_pk(self):
+        self.alice.generate_private_key()
+        self.bob.generate_private_key()
+
+    def compute_pubk(self):
+        self.alice.compute_public_key()
+        self.bob.compute_public_key()
+
+    def compute_ss(self):
+        self.alice.compute_shared_secret()
+        self.bob.compute_shared_secret()
+
     def run(self):
 
-        print("Running Diffie-Hellman protocol...")
-        print(self)
+        print(f"{Back.YELLOW}{Style.BRIGHT}--++-- STARTING PROTOCOL --++--{Style.RESET_ALL}")
 
         # Create parties
-        alice = Party(self.interfaceA, "Alice")
-        bob = Party(self.interfaceB, "Bob")
+        print(f"{Back.LIGHTBLACK_EX}{Style.BRIGHT}--++-- CREATING PARTIES --++--{Style.RESET_ALL}")
+        self.alice = Party(self.interfaceA, "Alice")
+        self.bob = Party(self.interfaceB, "Bob")
+        print(f"{Back.LIGHTBLACK_EX}{Style.BRIGHT}--++-- PARTIES CREATED --++--{Style.RESET_ALL}")
 
         # Create network
-        network = Pipe(alice, bob)
+        network = Pipe(self.alice, self.bob)
+
+        TIME = time.time_ns()
 
         # Generate private keys
-        alice.generate_private_key()
-        bob.generate_private_key()
+        print(f"{Back.LIGHTBLACK_EX}{Style.BRIGHT}--++-- GENERATING PRIVATE KEYS --++--{Style.RESET_ALL}")
+        timer_start = time.time_ns()
+        self.generate_pk()
+        print(f"Elapsed time: {(time.time_ns() - timer_start) / 1e9} s")
+        print(f"{Back.LIGHTBLACK_EX}{Style.BRIGHT}--++-- PRIVATE KEYS GENERATED --++--{Style.RESET_ALL}")
 
         # Compute public keys
-        alice.compute_public_key()
-        bob.compute_public_key()
+        print(f"{Back.LIGHTBLACK_EX}{Style.BRIGHT}--++-- COMPUTING PUBLIC KEYS --++--{Style.RESET_ALL}")
+        timer_start = time.time_ns()
+        self.compute_pubk()
+        print(f"Elapsed time: {(time.time_ns() - timer_start) / 1e9} s")
+        print(f"{Back.LIGHTBLACK_EX}{Style.BRIGHT}--++-- PUBLIC KEYS COMPUTED --++--{Style.RESET_ALL}")
 
         # Exchange public keys
-        network.transmit_A_to_B(alice.public_key)
-        network.transmit_B_to_A(bob.public_key)
+        print(f"{Back.BLUE}{Style.BRIGHT}--++-- EXCHANGING PUBLIC KEYS --++--{Style.RESET_ALL}")
+        network.transmit_A_to_B(self.alice.public_key)
+        network.transmit_B_to_A(self.bob.public_key)
+
 
         # Compute shared secrets
-        alice.compute_shared_secret()
-        bob.compute_shared_secret()
+        print(f"{Back.LIGHTBLACK_EX}{Style.BRIGHT}--++-- COMPUTING SHARED SECRETS --++--{Style.RESET_ALL}")
+        timer_start = time.time_ns()
+        self.compute_ss()
+        print(f"Elapsed time: {(time.time_ns() - timer_start) / 1e9} s")
+        print(f"{Back.LIGHTBLACK_EX}{Style.BRIGHT}--++-- SHARED SECRETS COMPUTED --++--{Style.RESET_ALL}")
 
-        check_secrets(alice.shared_secret, bob.shared_secret)
 
-        return alice, bob
+        total_time = time.time_ns() - TIME
+        print(f"{Back.YELLOW}{Style.BRIGHT}--++-- PROTOCOL COMPLETED --++--{Style.RESET_ALL}")
+        print(f"Total time: {total_time / 1e9} s")
+        return check_secrets(self.alice.shared_secret, self.bob.shared_secret), total_time
 
 
 

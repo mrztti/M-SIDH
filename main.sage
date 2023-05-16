@@ -26,14 +26,19 @@ if __name__ == "__main__":
     # TEST SIDH
     # ==============================================================================
     print("Testing SIDH protocol...")
-    ex = sidh.create_protocol(sidh.get_curve("DeFeo"))
-
-    # Run protocol
-    ex.run() """
+    sidh.create_protocol(sidh.get_curve("DeFeo")).run()
+    """
 
     # ==============================================================================
     # TEST MSIDH
+    # Current maximum tested: t = 90 
+    # Settings generation: 91.5s
+    # Protocol execution: 29.2s
+    # Currently the biggest bottlenecks are: 
+    # - prime verification in EllipticCurve
+    # - computing the generators of the curve
+    # 
     # ==============================================================================
     print("Testing MSIDH protocol...")
-    settings = msidh.MSIDHpBaby()
-    ex = msidh.create_protocol(settings).run()
+    settings = msidh.MSIDHp32
+    msidh.create_protocol(settings).run()
