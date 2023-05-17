@@ -180,10 +180,28 @@ class Baby_SIKE(SIDH_Parameters):
         super().__init__(lA, lB, eA, eB, p, curve)
 
 
+class SIKEp434(SIDH_Parameters):
+    def __init__(self):
+        lA, eA, lB, eB = 2, 216, 3, 137
+        p = (lA ** eA) * (lB ** eB) - 1
+        F = FiniteField((p, 2), 'x', impl='pari_ffelt')
+        curve = EllipticCurve(F, [1,0])
+        super().__init__(lA, lB, eA, eB, p, curve)
+
+class SIKEp751(SIDH_Parameters):
+    def __init__(self):
+        lA, eA, lB, eB = 2, 372, 3, 239
+        p = (lA ** eA) * (lB ** eB) - 1
+        F = FiniteField((p, 2), 'x', impl='pari_ffelt')
+        curve = EllipticCurve(F, [1,0])
+        super().__init__(lA, lB, eA, eB, p, curve)
+
 available_curves ={
     "p182": SIKEp182,
     "DeFeo": DeFeo,
-    "bSIKE": Baby_SIKE
+    "bSIKE": Baby_SIKE,
+    "p434": SIKEp434,
+    "p751": SIKEp751
 }
 
 def get_curve(curve_name):

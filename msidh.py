@@ -49,8 +49,18 @@ class MSIDH_Parameters:
         self.Bf = Bf
 
         # Calculate the points PA, QA, PB, QB
-        self.PA, self.QA = ( B * G * f for G in E0.gens())
-        self.PB, self.QB = ( A * G * f for G in E0.gens())
+
+        '''
+        TODO : Find a more efficient implementation to do this? Is it even possible?
+
+        There exists no efficient algorithm to find the generators 
+        '''
+        gens = E0.gens()
+        print(f"Generators: {gens}")
+        self.PA, self.QA = ( B * G * f for G in gens)
+        self.PB, self.QB = ( A * G * f for G in gens)
+
+        print(f"{Back.BLUE}==== Generated M-SIDH parameters [{self.__class__.__name__}] ==== {Style.RESET_ALL}")
 
         # Verify the parameters
         if validate and not self.verify_parameters():
@@ -168,6 +178,7 @@ class MSIDH_Parameters:
         
         print(f"{Back.LIGHTGREEN_EX}==== SIDH parameters are valid ==== {Style.RESET_ALL}")
         return True
+    
 
 class MSIDHp128(MSIDH_Parameters):
     def __init__(self):
@@ -196,23 +207,28 @@ class MSIDHp128(MSIDH_Parameters):
         p = A * B * f - 1
         logging.getLogger().setLevel(logging.DEBUG)
         print (f"{Back.LIGHTMAGENTA_EX}GENERATING THE FIELD...{Style.RESET_ALL}")
-        F = FiniteField((p, 2), name='x', proof=False)
+        F = FiniteField((p, 2), name='x', proof=False, check_irreducible=False)
         print (f"{Back.LIGHTMAGENTA_EX}GENERATING THE CURVE...{Style.RESET_ALL}")
         E0 = EllipticCurve(F, [1,0])
         print(f"{Back.LIGHTMAGENTA_EX}DONE{Style.RESET_ALL}")
         logging.getLogger().setLevel(logging.WARNING)
         super().__init__(f, p, E0, A, B, A_l, B_l)
 
-class MSIDHp32(MSIDH_Parameters):
-    def __init__(self, f=17):
-        t = 90
+
+class MSIDHpArbitrary(MSIDH_Parameters):
+    def __init__(self, security_parameter, force_t=None):
+        self.security_parameter = security_parameter
+        t = 2 * security_parameter
+        if force_t is not None:
+            t = force_t
+            
         pari.allocatemem(1<<32)
         print(f"{Back.LIGHTMAGENTA_EX}GENERATING THE SETTINGS...{Style.RESET_ALL}")
         # Get the lambda smallest primes
         primes = Primes()
         primes_list = [primes.unrank(0) ** 2]
         # collect the primes
-        for i in range(1,t):
+        for i in range(1, 2*t):
             primes_list.append(primes.unrank(i))
 
         # A_l = elements of even index in list
@@ -224,18 +240,33 @@ class MSIDHp32(MSIDH_Parameters):
         A = prod(A_l)
         B = prod(B_l)
 
+        # Now we have to find largest n such that prod B <= A_l[n:] ** 2
+        
+        n = 0
+        while B <= prod(A_l[n:]) ** 2:
+            n += 1
+
+        if security_parameter < (t - n ):
+            # We have to restart with a larger t
+            print(f"retrying with t={t+1}")
+            self = MSIDHpArbitrary(security_parameter, force_t=t+1)
+            return
+
+
+        f = 1
         # Calculate p
         p = A * B * f - 1
-        """ if not is_prime(p):
-            print(f"retrying with f={f+1}")
-            MSIDHp32(f+1) """
-        logging.getLogger().setLevel(logging.DEBUG)
+        while not is_prime(p):
+            f += 1
+            p = A * B * f - 1
+        print(f"p = {p}")
         F = FiniteField((p, 2), name='x')
         print (f"{Back.LIGHTMAGENTA_EX}GENERATING THE CURVE...{Style.RESET_ALL}")
         E0 = EllipticCurve(F, [1,0])
         print(f"{Back.LIGHTMAGENTA_EX}DONE{Style.RESET_ALL}")
-        logging.getLogger().setLevel(logging.WARNING)
+        self.__name__ = f"MSIDH_AES-{security_parameter}"
         super().__init__(f, p, E0, A, B, A_l, B_l, validate=False)
+
 
 class MSIDHpBaby(MSIDH_Parameters):
     def __init__(self, f=6):
@@ -261,6 +292,8 @@ class MSIDHpBaby(MSIDH_Parameters):
         # Calculate A and B
         A = prod(A_l)
         B = prod(B_l)
+
+        
 
         # Calculate p
         p = A * B * f - 1
@@ -400,11 +433,43 @@ class MSIDH_Party_B(DH_interface):
         psiB = other_public_key[0].isogeny(LB, algorithm="factored")
         return psiB.codomain().j_invariant()
 
+standard_parameters = {
+    "Baby": MSIDHpBaby,
+    "p128": MSIDHp128,
+}
 
-def create_protocol(settings_class):
+import os.path
+def create_protocol(settings_class, additional_parameter=None):
     timer_start = time.time_ns()
-    settings = settings_class()
+
+    name = settings_class.__name__
+    available = [n.__name__ for n in standard_parameters.values()]
+    if name in available and os.path.isfile(f"{name}.pickle"):
+        # Load the parameters from file
+        print(f"{Back.MAGENTA}Loading {name} parameters from file...{Style.RESET_ALL}")
+        with open(f"{name}.pickle", "rb") as f:
+            settings = pickle.load(f)
+    else:
+        # Generate the parameters
+        print(f"{Back.MAGENTA}Generating {name} parameters...{Style.RESET_ALL}")
+        if additional_parameter is None:
+            settings = settings_class()
+        else:
+            settings = settings_class(additional_parameter)
+        with open(f"{settings.__name__}.pickle", "wb") as f:
+            pickle.dump(settings, f)
+
+
     print(f"{Back.GREEN}DONE{Style.RESET_ALL} {(time.time_ns() - timer_start) / 1e9} s")
+
+    partyA = MSIDH_Party_A(settings)
+    partyB = MSIDH_Party_B(settings)
+    return DH_Protocol(partyA, partyB)
+
+
+def create_protocol_from_file(path):
+    with open(path, "rb") as f:
+        settings = pickle.load(f)
 
     partyA = MSIDH_Party_A(settings)
     partyB = MSIDH_Party_B(settings)
