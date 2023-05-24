@@ -197,12 +197,19 @@ class SIKEp751(SIDH_Parameters):
         super().__init__(lA, lB, eA, eB, p, curve)
 
 available_curves ={
-    "p182": SIKEp182,
     "DeFeo": DeFeo,
     "bSIKE": Baby_SIKE,
+    "p182": SIKEp182,
     "p434": SIKEp434,
     "p751": SIKEp751
 }
+
+""" NIST = {
+    1: SIKEp434,
+    2: SIKEp503,
+    3: SIKEp610,
+    5: SIKEp751
+} """
 
 def get_curve(curve_name):
     if curve_name not in available_curves:

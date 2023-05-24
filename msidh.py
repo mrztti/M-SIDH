@@ -55,7 +55,163 @@ class MSIDH_Parameters:
 
         There exists no efficient algorithm to find the generators 
         '''
-        gens = E0.gens()
+        # gens = E0.gens() # This is not efficient
+
+        '''
+        Custom implementation to find the generators:
+
+        1. Sample a random point P on the curve
+        2. Compute the order of P
+        3. If the order of P is not (p+1), then restart from step 1
+        4. If the order of P is (p+1), then P is a generator of E0
+
+        5. Factor p+1 = l_1 ^ e_1 * l_2 ^ e_2 * ... * l_n ^ e_n
+        6. Compute LP = [ (p+1)/(l_1 ^ e_1) * P, (p+1)/(l_2 ^ e_2) * P, ..., (p+1)/(l_n ^ e_n) * P ]
+
+        7. Sample a second random point Q on the curve distinct from P
+        8. Compute the order of Q
+        9. If the order of Q is not (p+1), then restart from step 7
+        10. Compute LQ = [ (p+1)/(l_1 ^ e_1) * Q, (p+1)/(l_2 ^ e_2) * Q, ..., (p+1)/(l_n ^ e_n) * Q ]
+
+        11. Check pairwise: multiplicative order of the weil pairing of (LP[i], LQ[i]) is l_i ^ e_i
+            => Points P,Q are linearly independent
+        12. If the check fails, restart from step 7
+        13. If the check succeeds, then (P, Q) is a basis of E0[p+1] = <P, Q>
+        '''
+
+        def BCM(U, I):
+            '''
+            Batch cofactor multiplication
+            '''
+            n_ = len(I)
+            if n_ == 1:
+                return [U]
+            
+            m_ = floor(n_ / 2)
+            L1_ = [I[i] for i in range(m_)]
+            L2_ = [I[i] for i in range(m_, n_)]
+            L1 = 1
+            L2 = 1
+            for i in range(m_):
+                L1 *= L1_[i]
+            for i in range(n_ - m_):
+                L2 *= L2_[i]
+
+            left = L1 * U
+            right = L2 * U
+
+            r1 = BCM(left, L1_)
+            r2 = BCM(right, L2_)
+
+            print(f"r1: {r1}")
+            print(f"r2: {r2}")
+
+            return list(set(r1).union(set(r2)))
+
+
+        # 1. Sample a random point P on the curve
+        P = E0.random_point()
+
+        """ # I: Find all j such that the prime number at the jth index divides A
+        A_factors = [i for i, _ in factor(A) if i > 2]
+        primes = prime_range(A_factors[-1] + 1)
+        prime_index_map = {p: i for i, p in enumerate(primes)}
+        I = [prime_index_map[p] for p in A_factors]
+        print(f"I: {I}")
+
+
+        U = (f*B) * R
+        # Us = BCM(U, I)
+        Us = [A / p * U for p in A_factors]
+        print(f"Us: {Us}")
+        # Iu: list of index i of all points in Us such that Us[i] = point at infinity 
+        Iu = [i for i, u in enumerate(Us) if u.is_zero()]
+        print(f"Iu: {Iu}")
+        while len(Iu) != 0:
+            R = E0.random_point()
+            U_ = (2*f*(p+1)) * R
+            Us_ = [A / A_factors[j] * U_ for j in Iu]
+            Iu_ = [k for k, u in enumerate(Us_) if not u.is_zero()]
+            for j in Iu_:
+                U = U + Us_[j]
+                Us[j] = Us_[j]
+            Iu = [i for i, u in enumerate(Us_) if u.is_zero()]
+            print(f"Iu_: {Iu_}")
+            print(f"Iu: {Iu}")
+        
+
+        order = U.order()
+        print(f"Order of U: {order == A}")
+        exit() """
+
+        
+
+        # 2. Compute the order of P
+        order = P.order()
+
+        # 3. If the order of P is not (p+1), then restart from step 1
+        while order != (p+1):
+            P = E0.random_point()
+            order = P.order()
+
+        # 4. If the order of P is (p+1), then P is a generator of E0
+        print(f"Generator P found: {P}")
+
+        # 5. Factor p+1 = l_1 ^ e_1 * l_2 ^ e_2 * ... * l_n ^ e_n
+        factorization = factor(p+1)
+
+        # 6. Compute LP = [ (p+1)/(l_1 ^ e_1) * P, (p+1)/(l_2 ^ e_2) * P, ..., (p+1)/(l_n ^ e_n) * P ]
+        LP = [ (p+1) / (l ** e) * P for l, e in factorization ]
+
+        def check_mult_order(pairing, le):
+            t = 1
+            prod_ = pairing
+            while prod_ != 1 and t != (le + 1):
+                prod_ *= pairing
+                t += 1
+            print(f"t: {t}, prod: {prod_}")
+            return t == le 
+
+        # SECOND GENERATOR
+        Q = None
+        while True:
+            # 7. Sample a second random point Q on the curve distinct from P
+            Q = E0.random_point()
+            if Q == P:
+                continue
+
+            # 8. Compute the order of Q
+            order = Q.order()
+
+            # 9. If the order of Q is not (p+1), then restart from step 7
+            if order != (p+1):
+                continue
+            print(f"Found a candidate for Q: {Q}")
+            # 10. Compute LQ = [ (p+1)/(l_1 ^ e_1) * Q, (p+1)/(l_2 ^ e_2) * Q, ..., (p+1)/(l_n ^ e_n) * Q ]
+            LQ = [ (p+1) / (l ** e) * Q for l, e in factorization ]
+
+            # 11. Check pairwise: multiplicative order of the weil pairing of (LP[i], LQ[i]) is l_i ^ e_i
+            #     => Points P,Q are linearly independent
+            print("Checking if P and Q are linearly independent...")
+            error = False
+            for i in range(len(factorization)):
+                l, e = factorization[i]
+                le = l ** e
+                wp = LP[i].weil_pairing(LQ[i], le,)
+                if not check_mult_order(wp, le):
+                    error = True
+                    print(f"Pair {i} failed")
+                    break
+                print(f"Pair {i} OK")
+
+            # 12. If the check fails, restart from step 7
+            if error:
+                continue
+            break
+
+        # 13. If the check succeeds, then (P, Q) is a basis of E0[p+1] = <P, Q>
+        print(f"Generator Q found: {Q}")    
+        gens = [P, Q]
         print(f"Generators: {gens}")
         self.PA, self.QA = ( B * G * f for G in gens)
         self.PB, self.QB = ( A * G * f for G in gens)
@@ -209,7 +365,7 @@ class MSIDHp128(MSIDH_Parameters):
         print (f"{Back.LIGHTMAGENTA_EX}GENERATING THE FIELD...{Style.RESET_ALL}")
         F = FiniteField((p, 2), name='x', proof=False, check_irreducible=False)
         print (f"{Back.LIGHTMAGENTA_EX}GENERATING THE CURVE...{Style.RESET_ALL}")
-        E0 = EllipticCurve(F, [1,0])
+        E0 = EllipticCurve([F(1), F(0)])
         print(f"{Back.LIGHTMAGENTA_EX}DONE{Style.RESET_ALL}")
         logging.getLogger().setLevel(logging.WARNING)
         super().__init__(f, p, E0, A, B, A_l, B_l)
@@ -377,7 +533,9 @@ class MSIDH_Party_A(DH_interface):
     def compute_public_key(self, private_key):
         pr = self.parameters
         KA = pr.PA + private_key[1] * pr.QA
+        print("computing isogeny")
         phiA = pr.E0.isogeny(KA, algorithm="factored")
+        print("computing public key")
         return ( phiA.codomain(), private_key[0] * phiA(pr.PB), private_key[0] * phiA(pr.QB) )
 
     def compute_shared_secret(self, private_key, other_public_key):
@@ -414,7 +572,9 @@ class MSIDH_Party_B(DH_interface):
     def compute_public_key(self, private_key):
         pr = self.parameters
         KB = pr.PB + private_key[1] * pr.QB
+        print("computing isogeny")
         phiB = pr.E0.isogeny(KB, algorithm="factored")
+        print("Computing public key")
         return ( phiB.codomain(),  private_key[0] * phiB(pr.PA),  private_key[0] * phiB(pr.QA) )
 
     def compute_shared_secret(self, private_key, other_public_key):
@@ -439,15 +599,14 @@ standard_parameters = {
 }
 
 import os.path
-def create_protocol(settings_class, additional_parameter=None):
+def create_protocol(settings_class, additional_parameter=None, p_name=None):
     timer_start = time.time_ns()
 
     name = settings_class.__name__
-    available = [n.__name__ for n in standard_parameters.values()]
-    if name in available and os.path.isfile(f"{name}.pickle"):
+    if (not p_name==None) and os.path.isfile(f"{p_name}.pickle"):
         # Load the parameters from file
-        print(f"{Back.MAGENTA}Loading {name} parameters from file...{Style.RESET_ALL}")
-        with open(f"{name}.pickle", "rb") as f:
+        print(f"{Back.MAGENTA}Loading {p_name} parameters from file...{Style.RESET_ALL}")
+        with open(f"{p_name}.pickle", "rb") as f:
             settings = pickle.load(f)
     else:
         # Generate the parameters

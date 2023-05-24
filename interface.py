@@ -20,14 +20,14 @@ def check_secrets(secret1, secret2):
         print(f"Shared secret: {secret1}")
         # print tzpe info
         print(f"Type: {type(secret1)}")
+        print("========================================")
+        return True
     else:
         print(f"{Back.RED}{Style.BRIGHT}FAILED SECRET SHARING{Style.RESET_ALL}")
         print(f"Secret 1: {secret1}")
         print(f"Secret 2: {secret2}")
-
-    print("========================================")
-
-
+        print("========================================")
+        return False
 
 # ==============================================================================
 
