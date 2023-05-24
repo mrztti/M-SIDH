@@ -79,73 +79,10 @@ class MSIDH_Parameters:
         13. If the check succeeds, then (P, Q) is a basis of E0[p+1] = <P, Q>
         '''
 
-        def BCM(U, I):
-            '''
-            Batch cofactor multiplication
-            '''
-            n_ = len(I)
-            if n_ == 1:
-                return [U]
-            
-            m_ = floor(n_ / 2)
-            L1_ = [I[i] for i in range(m_)]
-            L2_ = [I[i] for i in range(m_, n_)]
-            L1 = 1
-            L2 = 1
-            for i in range(m_):
-                L1 *= L1_[i]
-            for i in range(n_ - m_):
-                L2 *= L2_[i]
-
-            left = L1 * U
-            right = L2 * U
-
-            r1 = BCM(left, L1_)
-            r2 = BCM(right, L2_)
-
-            print(f"r1: {r1}")
-            print(f"r2: {r2}")
-
-            return list(set(r1).union(set(r2)))
-
 
         # 1. Sample a random point P on the curve
         P = E0.random_point()
-
-        """ # I: Find all j such that the prime number at the jth index divides A
-        A_factors = [i for i, _ in factor(A) if i > 2]
-        primes = prime_range(A_factors[-1] + 1)
-        prime_index_map = {p: i for i, p in enumerate(primes)}
-        I = [prime_index_map[p] for p in A_factors]
-        print(f"I: {I}")
-
-
-        U = (f*B) * R
-        # Us = BCM(U, I)
-        Us = [A / p * U for p in A_factors]
-        print(f"Us: {Us}")
-        # Iu: list of index i of all points in Us such that Us[i] = point at infinity 
-        Iu = [i for i, u in enumerate(Us) if u.is_zero()]
-        print(f"Iu: {Iu}")
-        while len(Iu) != 0:
-            R = E0.random_point()
-            U_ = (2*f*(p+1)) * R
-            Us_ = [A / A_factors[j] * U_ for j in Iu]
-            Iu_ = [k for k, u in enumerate(Us_) if not u.is_zero()]
-            for j in Iu_:
-                U = U + Us_[j]
-                Us[j] = Us_[j]
-            Iu = [i for i, u in enumerate(Us_) if u.is_zero()]
-            print(f"Iu_: {Iu_}")
-            print(f"Iu: {Iu}")
         
-
-        order = U.order()
-        print(f"Order of U: {order == A}")
-        exit() """
-
-        
-
         # 2. Compute the order of P
         order = P.order()
 
