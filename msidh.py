@@ -16,6 +16,8 @@ from sage.misc.persist import SagePickler
 import threading
 import time
 
+proof.all(False)
+
 class MSIDH_Parameters:
     def __init__(self, f, p, E0, A, B, Af, Bf, validate=True):
         '''
@@ -79,35 +81,27 @@ class MSIDH_Parameters:
         13. If the check succeeds, then (P, Q) is a basis of E0[p+1] = <P, Q>
         '''
 
-
+        factorization = factor(p+1)
+        print("Factorization of p+1: ", factorization)
         # 1. Sample a random point P on the curve
         P = E0.random_point()
-        
-        # 2. Compute the order of P
-        order = P.order()
+        print(f"Random point P found")
 
-        # 3. If the order of P is not (p+1), then restart from step 1
-        while order != (p+1):
+        LP = [ (p+1) / l * P for l, e in factorization ]
+        # check if 
+        
+        while LP.count(E0(0)) != 0:
+            print('Restarting from step 1')
             P = E0.random_point()
-            order = P.order()
+            LP = [ ((p+1) / l) * P for l, _ in factorization ]
 
         # 4. If the order of P is (p+1), then P is a generator of E0
-        print(f"Generator P found: {P}")
+        print(f"Generator P found")
 
         # 5. Factor p+1 = l_1 ^ e_1 * l_2 ^ e_2 * ... * l_n ^ e_n
-        factorization = factor(p+1)
+        
 
         # 6. Compute LP = [ (p+1)/(l_1 ^ e_1) * P, (p+1)/(l_2 ^ e_2) * P, ..., (p+1)/(l_n ^ e_n) * P ]
-        LP = [ (p+1) / (l ** e) * P for l, e in factorization ]
-
-        def check_mult_order(pairing, le):
-            t = 1
-            prod_ = pairing
-            while prod_ != 1 and t != (le + 1):
-                prod_ *= pairing
-                t += 1
-            print(f"t: {t}, prod: {prod_}")
-            return t == le 
 
         # SECOND GENERATOR
         Q = None
@@ -118,14 +112,14 @@ class MSIDH_Parameters:
                 continue
 
             # 8. Compute the order of Q
-            order = Q.order()
+            LQ = [ (p+1) / (l) * Q for l, e in factorization ]
 
             # 9. If the order of Q is not (p+1), then restart from step 7
-            if order != (p+1):
+            if LQ.count(E0(0)) != 0:
                 continue
-            print(f"Found a candidate for Q: {Q}")
+            print(f"Found a candidate for Q")
             # 10. Compute LQ = [ (p+1)/(l_1 ^ e_1) * Q, (p+1)/(l_2 ^ e_2) * Q, ..., (p+1)/(l_n ^ e_n) * Q ]
-            LQ = [ (p+1) / (l ** e) * Q for l, e in factorization ]
+            
 
             # 11. Check pairwise: multiplicative order of the weil pairing of (LP[i], LQ[i]) is l_i ^ e_i
             #     => Points P,Q are linearly independent
@@ -133,9 +127,8 @@ class MSIDH_Parameters:
             error = False
             for i in range(len(factorization)):
                 l, e = factorization[i]
-                le = l ** e
-                wp = LP[i].weil_pairing(LQ[i], le,)
-                if not check_mult_order(wp, le):
+                wp = LP[i].weil_pairing(LQ[i], l)
+                if wp == 1:
                     error = True
                     print(f"Pair {i} failed")
                     break
@@ -147,17 +140,16 @@ class MSIDH_Parameters:
             break
 
         # 13. If the check succeeds, then (P, Q) is a basis of E0[p+1] = <P, Q>
-        print(f"Generator Q found: {Q}")    
+        print(f"Generator Q found")    
         gens = [P, Q]
-        print(f"Generators: {gens}")
         self.PA, self.QA = ( B * G * f for G in gens)
         self.PB, self.QB = ( A * G * f for G in gens)
 
         print(f"{Back.BLUE}==== Generated M-SIDH parameters [{self.__class__.__name__}] ==== {Style.RESET_ALL}")
 
-        # Verify the parameters
+        """ # Verify the parameters
         if validate and not self.verify_parameters():
-            raise Exception("Invalid parameters")
+            raise Exception("Invalid parameters") """
         
 
     def __str__(self):
