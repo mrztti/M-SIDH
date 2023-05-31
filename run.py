@@ -67,9 +67,7 @@ def test_MSIDH(filename, n_rounds=10):
     return data
 
 def gen_MSIDH128():
-    print("Testing MSIDH protocol...")
-    settings = msidh.MSIDHp128
-    msidh.create_protocol(settings)
+    msidh.create_g128_protocol()
 
 def create_msidh(lam):
     msidh.create_protocol(msidh.MSIDHpArbitrary, lam) 

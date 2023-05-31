@@ -87,13 +87,13 @@ class MSIDH_Parameters:
         P = E0.random_point()
         print(f"Random point P found")
 
-        LP = [ (p+1) / l * P for l, e in factorization ]
+        LP = [ (p+1) / (l**e) * P for l, e in factorization ]
         # check if 
         
         while LP.count(E0(0)) != 0:
             print('Restarting from step 1')
             P = E0.random_point()
-            LP = [ ((p+1) / l) * P for l, _ in factorization ]
+            LP = [ ((p+1) / (l**e)) * P for l, e in factorization ]
 
         # 4. If the order of P is (p+1), then P is a generator of E0
         print(f"Generator P found")
@@ -104,18 +104,24 @@ class MSIDH_Parameters:
         # 6. Compute LP = [ (p+1)/(l_1 ^ e_1) * P, (p+1)/(l_2 ^ e_2) * P, ..., (p+1)/(l_n ^ e_n) * P ]
 
         # SECOND GENERATOR
-        Q = None
+        to_test = list(range(len(factorization)))
+        Q = E0.random_point()
         while True:
             # 7. Sample a second random point Q on the curve distinct from P
-            Q = E0.random_point()
             if Q == P:
+                to_test = list(range(len(factorization)))
+                Q = E0.random_point()
+                print ("Restarting from step 7 because Q == P")
                 continue
 
             # 8. Compute the order of Q
-            LQ = [ (p+1) / (l) * Q for l, e in factorization ]
+            LQ = [ (p+1) / (l**e) * Q for l, e in factorization ]
 
             # 9. If the order of Q is not (p+1), then restart from step 7
             if LQ.count(E0(0)) != 0:
+                to_test = list(range(len(factorization)))
+                Q = E0.random_point()
+                print (f"Restarting from step 7 because LQ.count(E0(0)) != 0, count = {LQ.count(E0(0))}")
                 continue
             print(f"Found a candidate for Q")
             # 10. Compute LQ = [ (p+1)/(l_1 ^ e_1) * Q, (p+1)/(l_2 ^ e_2) * Q, ..., (p+1)/(l_n ^ e_n) * Q ]
@@ -125,18 +131,39 @@ class MSIDH_Parameters:
             #     => Points P,Q are linearly independent
             print("Checking if P and Q are linearly independent...")
             error = False
-            for i in range(len(factorization)):
+            # list of numbers from 0 to n-1
+            
+            print(f"Pairs to test: {to_test}")
+            next_test = []
+            for i in to_test:
                 l, e = factorization[i]
-                wp = LP[i].weil_pairing(LQ[i], l)
+                wp = LP[i].weil_pairing(LQ[i], l**e)
+             
                 if wp == 1:
                     error = True
-                    print(f"Pair {i} failed")
-                    break
-                print(f"Pair {i} OK")
+
+                    pt_ = (p+1) / (l**e) * E0.random_point()
+                    while True:
+                        wp_ = pt_.weil_pairing(LP[i], l**e)
+                        if wp_ == 1:
+                            pt_ = (p+1) / (l**e) * E0.random_point()
+                            continue
+                        else:
+                            break
+                    Q = Q - wp*pt_
+
+                    print(f"Pair {i} failed ->  {wp}, {l}, {e}, [LP[i], LQ[i]] = [{LP[i]}, {LQ[i]}, pt_ = {pt_}]")
+                    others = [LP[j] for j in range(len(factorization)) if j != i]
+
+                    next_test.append(i)
+                else:
+                    print(f"Pair {i} OK")
+            #to_test = next_test
 
             # 12. If the check fails, restart from step 7
-            if error:
-                continue
+            """ if error:
+                print(f"Restarting from step 7")
+                continue """
             break
 
         # 13. If the check succeeds, then (P, Q) is a basis of E0[p+1] = <P, Q>
@@ -562,3 +589,13 @@ def create_protocol_from_file(path):
     partyA = MSIDH_Party_A(settings)
     partyB = MSIDH_Party_B(settings)
     return DH_Protocol(partyA, partyB)
+
+def create_g128_protocol():
+    '''
+    Generate the p128 settings
+    '''
+    time_start = time.time_ns()
+    settings = MSIDHp128()
+    print(f"{Back.GREEN}DONE{Style.RESET_ALL} {(time.time_ns() - time_start) / 1e9} s")
+    with open(f"MSIDHp128.pickle", "wb") as f:
+        pickle.dump(settings, f)
