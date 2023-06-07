@@ -6,11 +6,13 @@
 # Date: Spring 2023
 # ==============================================================================
 
+import os
 import msidh 
 import sidh
 import sage.all as sage
 import time
 import argparse
+import numpy as np
 
 parser = argparse.ArgumentParser(
                     prog='M-SIDH Demo Runner',
@@ -35,7 +37,17 @@ def test_SIDH(curve, n_rounds=10):
     print(f"Average time: {sum([r[1]for r in results])/n_rounds * 1e-9}s")
     print(f"Failure count: {sum([1 for r in results if not r[0]])}")
 
-    data = {'time': [r[1] for r in results], 'success': [r[0] for r in results]}
+    average_time = sum([r[1]for r in results])/n_rounds * 1e-9
+    std = np.std([r[1]for r in results])
+    failure_count = sum([1 for r in results if not r[0]])
+
+    data = {
+        'settings': curve,
+        'average_time': average_time,
+        'std': std,
+        'failure_count': failure_count
+    }
+
     return data
 
 def test_MSIDH(filename, n_rounds=10):
@@ -57,13 +69,25 @@ def test_MSIDH(filename, n_rounds=10):
 
     results = []
     for i in range(n_rounds):
+        
         print(f"Round {i+1}/{n_rounds}")
         results.append(scheme.run())
+
 
     print(f"Average time: {sum([r[1]for r in results])/n_rounds * 1e-9}s")
     print(f"Failure count: {sum([1 for r in results if not r[0]])}")
 
-    data = {'time': [r[1] for r in results], 'success': [r[0] for r in results]}
+    average_time = sum([r[1]for r in results])/n_rounds * 1e-9
+    std = np.std([r[1]for r in results])
+    failure_count = sum([1 for r in results if not r[0]])
+
+    data = {
+        'settings': filename,
+        'average_time': average_time,
+        'std': std,
+        'failure_count': failure_count
+    }
+
     return data
 
 def gen_MSIDH128():
@@ -78,11 +102,15 @@ def output_data(filename, data):
     data: dict of the form {name: [data list]}
     '''
 
-    with open(filename + ".csv", 'w') as f:
-        f.write(','.join(data.keys()) + '\n')
-        for i in range(len(data[list(data.keys())[0]])):
-            f.write(','.join([str(data[k][i]) for k in data.keys()]) + '\n')
-    print(f"Data written to {filename}.csv")
+    # check if file exists
+    if not os.path.exists(filename):
+        with open(filename, 'w') as f:
+            f.write(','.join(data.keys()) + '\n')
+
+    with open(filename, 'a') as f:
+        # add a line
+        f.write(','.join([str(v) for v in data.values()]) + '\n')
+    print(f"Data written to {filename}")
 
 
 if __name__ == "__main__":
@@ -92,7 +120,6 @@ if __name__ == "__main__":
     parser.add_argument('-r', '--rounds', type=int, default=10, help='Number of rounds to run tests for')
     parser.add_argument('-g', '--gen', type=int, help='generate MSIDH parameters for a given security level')
     parser.add_argument('-g128', '--gen128', action='store_true', help='generate MSIDH-128 parameters')
-    parser.add_argument('-o', '--out', type=str, help='store test data to <filename>.csv')
     args = parser.parse_args()
 
     if args.gen:
@@ -104,8 +131,7 @@ if __name__ == "__main__":
             print("Please provide a curve to use for SIDH using -c")
             exit(1)
         data = test_SIDH(args.curve, args.rounds)
-        if args.out:
-            output_data(args.out, data)
+        output_data("sidh_results.csv", data)
 
     elif args.test == 'msidh':
         if not args.file:
@@ -113,8 +139,7 @@ if __name__ == "__main__":
             print("You can generate a file using -g <security level>")
             exit(1)
         data = test_MSIDH(args.file, args.rounds)
-        if args.out:
-            output_data(args.out, data)
+        output_data("msidh_results.csv", data)
     else:
         print("Invalid arguments, use -h for help")
         exit(1)

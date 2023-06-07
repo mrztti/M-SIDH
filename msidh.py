@@ -15,11 +15,12 @@ import pickle
 from sage.misc.persist import SagePickler
 import threading
 import time
+from sage.schemes.elliptic_curves.hom_composite import EllipticCurveHom_composite
 
 proof.all(False)
 
 class MSIDH_Parameters:
-    def __init__(self, f, p, E0, A, B, Af, Bf, validate=True):
+    def __init__(self, f, p, E0, A, B, Af, Bf, G, validate=False):
         '''
         Public parameters:
             f: Cofactor for p
@@ -49,122 +50,85 @@ class MSIDH_Parameters:
         self.B = B
         self.Af = Af
         self.Bf = Bf
+        self.G = G
 
         # Calculate the points PA, QA, PB, QB
 
-        '''
-        TODO : Find a more efficient implementation to do this? Is it even possible?
-
-        There exists no efficient algorithm to find the generators 
-        '''
-        # gens = E0.gens() # This is not efficient
-
-        '''
-        Custom implementation to find the generators:
-
-        1. Sample a random point P on the curve
-        2. Compute the order of P
-        3. If the order of P is not (p+1), then restart from step 1
-        4. If the order of P is (p+1), then P is a generator of E0
-
-        5. Factor p+1 = l_1 ^ e_1 * l_2 ^ e_2 * ... * l_n ^ e_n
-        6. Compute LP = [ (p+1)/(l_1 ^ e_1) * P, (p+1)/(l_2 ^ e_2) * P, ..., (p+1)/(l_n ^ e_n) * P ]
-
-        7. Sample a second random point Q on the curve distinct from P
-        8. Compute the order of Q
-        9. If the order of Q is not (p+1), then restart from step 7
-        10. Compute LQ = [ (p+1)/(l_1 ^ e_1) * Q, (p+1)/(l_2 ^ e_2) * Q, ..., (p+1)/(l_n ^ e_n) * Q ]
-
-        11. Check pairwise: multiplicative order of the weil pairing of (LP[i], LQ[i]) is l_i ^ e_i
-            => Points P,Q are linearly independent
-        12. If the check fails, restart from step 7
-        13. If the check succeeds, then (P, Q) is a basis of E0[p+1] = <P, Q>
-        '''
-
         factorization = factor(p+1)
         print("Factorization of p+1: ", factorization)
-        # 1. Sample a random point P on the curve
+        # Sample a random point P on the curve
         P = E0.random_point()
-        print(f"Random point P found")
 
         LP = [ (p+1) / (l**e) * P for l, e in factorization ]
-        # check if 
+        check_LP = LP.copy()
+        for i in range(len(factorization)):
+            l, e = factorization[i]
+            if e > 1:
+                check_LP[i] *= l ** (e-1)
         
-        while LP.count(E0(0)) != 0:
+        while check_LP.count(E0(0)) != 0:
             print('Restarting from step 1')
             P = E0.random_point()
-            LP = [ ((p+1) / (l**e)) * P for l, e in factorization ]
+            LP = [ (p+1) / (l**e) * P for l, e in factorization ]
+            check_LP = LP
+            for i in range(len(factorization)):
+                l, e = factorization[i]
+                if e > 1:
+                    check_LP[i] *= l ** (e-1)
 
-        # 4. If the order of P is (p+1), then P is a generator of E0
+        # If the order of P is (p+1), then P is a generator of E0
         print(f"Generator P found")
 
-        # 5. Factor p+1 = l_1 ^ e_1 * l_2 ^ e_2 * ... * l_n ^ e_n
-        
-
-        # 6. Compute LP = [ (p+1)/(l_1 ^ e_1) * P, (p+1)/(l_2 ^ e_2) * P, ..., (p+1)/(l_n ^ e_n) * P ]
-
         # SECOND GENERATOR
-        to_test = list(range(len(factorization)))
         Q = E0.random_point()
         while True:
-            # 7. Sample a second random point Q on the curve distinct from P
+            # Sample a second random point Q on the curve distinct from P
             if Q == P:
-                to_test = list(range(len(factorization)))
                 Q = E0.random_point()
-                print ("Restarting from step 7 because Q == P")
                 continue
 
-            # 8. Compute the order of Q
+            # Compute the order of Q
             LQ = [ (p+1) / (l**e) * Q for l, e in factorization ]
 
-            # 9. If the order of Q is not (p+1), then restart from step 7
-            if LQ.count(E0(0)) != 0:
-                to_test = list(range(len(factorization)))
+            check_LQ = LQ.copy()
+            for i in range(len(factorization)):
+                l, e = factorization[i]
+                if e > 1:
+                    check_LQ[i] *= l ** (e-1)
+
+            # If the order of Q is not (p+1), then restart from step 7
+            if check_LQ.count(E0(0)) != 0:
                 Q = E0.random_point()
-                print (f"Restarting from step 7 because LQ.count(E0(0)) != 0, count = {LQ.count(E0(0))}")
+                print (f"Restarting because LQ.count(E0(0)) != 0, count = {LQ.count(E0(0))}")
                 continue
             print(f"Found a candidate for Q")
-            # 10. Compute LQ = [ (p+1)/(l_1 ^ e_1) * Q, (p+1)/(l_2 ^ e_2) * Q, ..., (p+1)/(l_n ^ e_n) * Q ]
             
-
-            # 11. Check pairwise: multiplicative order of the weil pairing of (LP[i], LQ[i]) is l_i ^ e_i
+            # Check pairwise: multiplicative order of the weil pairing of (LP[i], LQ[i]) is l_i ^ e_i
             #     => Points P,Q are linearly independent
-            print("Checking if P and Q are linearly independent...")
+            print("Making P,Q linearly independent...")
+
             error = False
-            # list of numbers from 0 to n-1
-            
-            print(f"Pairs to test: {to_test}")
-            next_test = []
-            for i in to_test:
+            for i in range(len(factorization)):
                 l, e = factorization[i]
                 wp = LP[i].weil_pairing(LQ[i], l**e)
-             
+                
                 if wp == 1:
                     error = True
-
                     pt_ = (p+1) / (l**e) * E0.random_point()
                     while True:
                         wp_ = pt_.weil_pairing(LP[i], l**e)
                         if wp_ == 1:
                             pt_ = (p+1) / (l**e) * E0.random_point()
+                            print(pt_)
                             continue
                         else:
                             break
-                    Q = Q - wp*pt_
+                    Q = Q - pt_
 
-                    print(f"Pair {i} failed ->  {wp}, {l}, {e}, [LP[i], LQ[i]] = [{LP[i]}, {LQ[i]}, pt_ = {pt_}]")
-                    others = [LP[j] for j in range(len(factorization)) if j != i]
-
-                    next_test.append(i)
-                else:
-                    print(f"Pair {i} OK")
-            #to_test = next_test
-
-            # 12. If the check fails, restart from step 7
-            """ if error:
-                print(f"Restarting from step 7")
-                continue """
-            break
+                    print(f"Pair {i} failed, adjusting !")
+            if not error:
+                break
+            
 
         # 13. If the check succeeds, then (P, Q) is a basis of E0[p+1] = <P, Q>
         print(f"Generator Q found")    
@@ -174,9 +138,9 @@ class MSIDH_Parameters:
 
         print(f"{Back.BLUE}==== Generated M-SIDH parameters [{self.__class__.__name__}] ==== {Style.RESET_ALL}")
 
-        """ # Verify the parameters
+        # Verify the parameters
         if validate and not self.verify_parameters():
-            raise Exception("Invalid parameters") """
+            raise Exception("Invalid parameters")
         
 
     def __str__(self):
@@ -319,18 +283,18 @@ class MSIDHp128(MSIDH_Parameters):
         p = A * B * f - 1
         logging.getLogger().setLevel(logging.DEBUG)
         print (f"{Back.LIGHTMAGENTA_EX}GENERATING THE FIELD...{Style.RESET_ALL}")
-        F = FiniteField((p, 2), name='x', proof=False, check_irreducible=False)
+        F = FiniteField((p, 2), name='x', proof=False)
         print (f"{Back.LIGHTMAGENTA_EX}GENERATING THE CURVE...{Style.RESET_ALL}")
-        E0 = EllipticCurve([F(1), F(0)])
+        E0 = EllipticCurve(F, [1,0])
         print(f"{Back.LIGHTMAGENTA_EX}DONE{Style.RESET_ALL}")
         logging.getLogger().setLevel(logging.WARNING)
-        super().__init__(f, p, E0, A, B, A_l, B_l)
+        super().__init__(f, p, E0, A, B, A_l, B_l, F)
 
 
 class MSIDHpArbitrary(MSIDH_Parameters):
-    def __init__(self, security_parameter, force_t=None):
+    def __init__(self, security_parameter, force_t = None):
         self.security_parameter = security_parameter
-        t = 2 * security_parameter
+        t = 2*security_parameter
         if force_t is not None:
             t = force_t
             
@@ -338,11 +302,11 @@ class MSIDHpArbitrary(MSIDH_Parameters):
         print(f"{Back.LIGHTMAGENTA_EX}GENERATING THE SETTINGS...{Style.RESET_ALL}")
         # Get the lambda smallest primes
         primes = Primes()
-        primes_list = [primes.unrank(0) ** 2]
+        #primes_list = [primes.unrank(0) ** 2]
+        primes_list = []
         # collect the primes
         for i in range(1, 2*t):
             primes_list.append(primes.unrank(i))
-
         # A_l = elements of even index in list
         # B_l = elements of odd index in list
         A_l = primes_list[::2]
@@ -357,86 +321,32 @@ class MSIDHpArbitrary(MSIDH_Parameters):
         n = 0
         while B <= prod(A_l[n:]) ** 2:
             n += 1
-
-        if security_parameter < (t - n ):
+        if security_parameter > (t - n + 1):
             # We have to restart with a larger t
             print(f"retrying with t={t+1}")
-            self = MSIDHpArbitrary(security_parameter, force_t=t+1)
+            self.__init__(security_parameter, force_t=t+1)
             return
-
+        print(f"2t = {2*t}")
 
         f = 1
         # Calculate p
         p = A * B * f - 1
-        while not is_prime(p):
+        while not (is_prime(p) and mod(p, 4) == 3):
             f += 1
             p = A * B * f - 1
+
+        assert mod(p, 4) == 3
         print(f"p = {p}")
         F = FiniteField((p, 2), name='x')
         print (f"{Back.LIGHTMAGENTA_EX}GENERATING THE CURVE...{Style.RESET_ALL}")
-        E0 = EllipticCurve(F, [1,0])
+        (a, ) = F._first_ngens(1)
+        print(f"a = {F(1)}")
+        E0 = EllipticCurve(j=F(1728))
+        print(E0.a2())
         print(f"{Back.LIGHTMAGENTA_EX}DONE{Style.RESET_ALL}")
-        self.__name__ = f"MSIDH_AES-{security_parameter}"
-        super().__init__(f, p, E0, A, B, A_l, B_l, validate=False)
+        self.name = f"MSIDH_AES-{security_parameter}"
+        super().__init__(f, p, E0, A, B, A_l, B_l, F)
 
-
-class MSIDHpBaby(MSIDH_Parameters):
-    def __init__(self, f=6):
-        lamb = 10
-        t = 20
-        print(f"{Back.LIGHTMAGENTA_EX}GENERATING THE SETTINGS...{Style.RESET_ALL}")
-        # Get the lambda smallest primes
-        primes = Primes()
-        primes_list = []
-        # collect the primes
-        for i in range(t):
-            if i < lamb:
-                primes_list.append(primes.unrank(i) ** 3)
-            else:
-                primes_list.append(primes.unrank(i))
-
-        # A_l = elements of even index in list
-        # B_l = elements of odd index in list
-        A_l = primes_list[::2]
-        B_l = primes_list[1::2]
-        print(A_l, B_l)
-
-        # Calculate A and B
-        A = prod(A_l)
-        B = prod(B_l)
-
-        
-
-        # Calculate p
-        p = A * B * f - 1
-        if not is_prime(p):
-            self.__init__(f+1)
-
-        F = FiniteField((p, 2), 'x')
-        E0 = EllipticCurve(F, [1,0])
-        # Check supersingular
-        assert E0.is_supersingular(proof=True)
-        print(f"{Back.LIGHTMAGENTA_EX}DONE{Style.RESET_ALL}")
-
-        super().__init__(f, p, E0, A, B, A_l, B_l)
-
-def mew(b):
-        '''
-        Sample an element x from Z/bZ where x ** 2 = 1 mod b
-
-        MAJOR HANGUP IN THIS FUNCTION
-
-        '''
-        print(f"starting mewtwo: {b}")
-        ring = IntegerModRing(b)
-        one = IntegerMod(ring, 1)
-        sqs = one.sqrt(all=True)
-        l = len(sqs)
-        rand = randrange(l)
-        res = sqs[rand]
-        assert res ** 2 == 1
-        print(f"mewtwo: {res}")
-        return res
 
 def mewtwo(b, factors):
         '''
@@ -446,29 +356,20 @@ def mewtwo(b, factors):
         # For each factor, find the square roots
         roots = []
         moduli = []
-        print(f"{Back.CYAN}Sampling MEWTWO on Z/{b}Z...{Style.RESET_ALL}")
         for factor in factors:
-            # ZoomZoom super fast when the factor is prime
-            if is_prime(factor):
-                # Flip a coin!
-                if randrange(2) == 0:
-                    roots.append(Integer(1))
-                else:
-                    roots.append(Integer(factor - 1))
-                moduli.append(Integer(factor))
+            # Flip a coin!
+            if randrange(2) == 0:
+                roots.append(Integer(1))
             else:
-                ring = IntegerModRing(factor)
-                one = IntegerMod(ring, 1)
-                sqs = one.sqrt(all=True)
-                # Flip a coin!
-                rand = sqs[randrange(len(sqs))]
-                roots.append(Integer(rand))
-                moduli.append(Integer(factor))
+                roots.append(Integer(factor - 1))
+            moduli.append(Integer(factor))
+                
         # Use CRT to find the root
         res = CRT_list(roots, moduli)
         res = IntegerModRing(b)(res)
         assert res ** 2 == 1
         return res
+    
 
 class MSIDH_Party_A(DH_interface):
     def __init__(self, parameters):
@@ -489,9 +390,7 @@ class MSIDH_Party_A(DH_interface):
     def compute_public_key(self, private_key):
         pr = self.parameters
         KA = pr.PA + private_key[1] * pr.QA
-        print("computing isogeny")
-        phiA = pr.E0.isogeny(KA, algorithm="factored")
-        print("computing public key")
+        phiA = EllipticCurveHom_composite(pr.E0, KA, kernel_order=pr.A)
         return ( phiA.codomain(), private_key[0] * phiA(pr.PB), private_key[0] * phiA(pr.QB) )
 
     def compute_shared_secret(self, private_key, other_public_key):
@@ -506,7 +405,7 @@ class MSIDH_Party_A(DH_interface):
         assert p1 == p2, "Weil pairing values do not match"
 
         LA = other_public_key[1] + private_key[1] * other_public_key[2]
-        psiA = other_public_key[0].isogeny(LA, algorithm="factored")
+        psiA = EllipticCurveHom_composite(other_public_key[0], LA, kernel_order=pr.A)
         return psiA.codomain().j_invariant()
     
 class MSIDH_Party_B(DH_interface):
@@ -529,7 +428,7 @@ class MSIDH_Party_B(DH_interface):
         pr = self.parameters
         KB = pr.PB + private_key[1] * pr.QB
         print("computing isogeny")
-        phiB = pr.E0.isogeny(KB, algorithm="factored")
+        phiB = EllipticCurveHom_composite(pr.E0, KB, kernel_order=pr.B)
         print("Computing public key")
         return ( phiB.codomain(),  private_key[0] * phiB(pr.PA),  private_key[0] * phiB(pr.QA) )
 
@@ -546,13 +445,9 @@ class MSIDH_Party_B(DH_interface):
         assert p1 == p2, "Weil pairing values do not match"
 
         LB = other_public_key[1] + private_key[1] * other_public_key[2]
-        psiB = other_public_key[0].isogeny(LB, algorithm="factored")
+        psiB = EllipticCurveHom_composite(other_public_key[0], LB, kernel_order=pr.B)
         return psiB.codomain().j_invariant()
 
-standard_parameters = {
-    "Baby": MSIDHpBaby,
-    "p128": MSIDHp128,
-}
 
 import os.path
 def create_protocol(settings_class, additional_parameter=None, p_name=None):
@@ -571,7 +466,7 @@ def create_protocol(settings_class, additional_parameter=None, p_name=None):
             settings = settings_class()
         else:
             settings = settings_class(additional_parameter)
-        with open(f"{settings.__name__}.pickle", "wb") as f:
+        with open(f"{settings.name}.pickle", "wb") as f:
             pickle.dump(settings, f)
 
 
@@ -599,3 +494,13 @@ def create_g128_protocol():
     print(f"{Back.GREEN}DONE{Style.RESET_ALL} {(time.time_ns() - time_start) / 1e9} s")
     with open(f"MSIDHp128.pickle", "wb") as f:
         pickle.dump(settings, f)
+
+
+def load_128():
+    '''
+    Load the p128 settings
+    '''
+    with open(f"MSIDH_AES-8.pickle", "rb") as f:
+        settings = pickle.load(f)
+    
+    return settings
