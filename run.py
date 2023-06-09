@@ -82,7 +82,7 @@ def test_MSIDH(filename, n_rounds=10):
     failure_count = sum([1 for r in results if not r[0]])
 
     data = {
-        'settings': filename,
+        'settings': filename.split('AES-')[1].split('.')[0],
         'average_time': average_time,
         'std': std,
         'failure_count': failure_count
