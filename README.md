@@ -18,15 +18,6 @@ This project describes the implementation of one countermeasure, namely M-SIDH, 
 
 ## Usage guide
 
- \item Show help: \\ \texttt{}
-        \item Run SIDH implementation on p751 parameters: \\ \texttt{sage run.py -t sidh -c p751}
-        \item Generate M-SIDH parameters for $\lambda = 128$ as given in \cite{msidh}: \\ \texttt{sage run.py -g128}
-        \item Generate M-SIDH parameters for arbitrary $\lambda$ given as an argument \cite{msidh}\\ \texttt{sage run.py -g <lambda>}
-        \item Test 2 rounds of M-SIDH using the parameters for $\lambda = 128$: \\ 
-        \texttt{sage run.py -t msidh -r 2 -f MSIDHp128.pickle}
-        \item Test 10 rounds of M-SIDH using the parameters for arbitrary $\lambda = 32$: \\ 
-        \texttt{sage run.py -t msidh -r 10 -f MSIDH\_AES-32.pickle }
-
 **Show help:**
     sage run.py -h
 
