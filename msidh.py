@@ -302,10 +302,9 @@ class MSIDHpArbitrary(MSIDH_Parameters):
         print(f"{Back.LIGHTMAGENTA_EX}GENERATING THE SETTINGS...{Style.RESET_ALL}")
         # Get the lambda smallest primes
         primes = Primes()
-        #primes_list = [primes.unrank(0) ** 2]
-        primes_list = []
+        primes_list = [primes.unrank(0) ** 2]
         # collect the primes
-        for i in range(1, 2*t):
+        for i in range(1, 2*t -1):
             primes_list.append(primes.unrank(i))
         # A_l = elements of even index in list
         # B_l = elements of odd index in list
