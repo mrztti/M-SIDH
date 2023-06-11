@@ -7,6 +7,11 @@
 
 ![LASEC](./figures/logo_lasec_coul.png)
 
+<blockquote style="border-left: 5px solid #ff0000; background-color: #f9f9f9; color: #808080; padding: 10px;">
+    <p>DISCLAIMER:</p>
+    <p>SIDH has been shown to be insecure. M-SIDH is part of an active field of research and as such this implementation comes with no security guarantees.</p>
+</blockquote>
+
 ## Abstract
 Isogenies between supersingular elliptic curves are useful to construct cryptographic schemes that may be resilient in a post-quantum cryptographic era. One particular scheme proposed is the Supersingular Isogeny Diffie-Hellman (SIDH) key exchange. Since its proposal in 2011, it was seen as a promising candidate. However in 2022 it was shown that one can mount a devastating polynomial time attack against SIDH. Countermeasures to this attack have been proposed by Fuotsa, Moriya and Petit, but imply an explosion in the size of the scheme parameters. 
 
