@@ -21,6 +21,11 @@ This project describes the implementation of one countermeasure, namely M-SIDH, 
 ### [Presentation slides](./presentation.pdf)
 ### [LASEC homepage](https://lasec.epfl.ch/)
 
+> This implementation uses a custom version of the sagemath factored isogeny computation:
+> It speeds up calculation by passing order of the points directly!
+> It does not recompute the order of the points
+> Place `hom_composite.py` in your sagemath source code to leverage this modification.
+
 ## Usage guide
 
 **Show help:**
