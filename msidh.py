@@ -99,7 +99,7 @@ class MSIDH_Parameters:
             # If the order of Q is not (p+1), then restart from step 7
             if check_LQ.count(E0(0)) != 0:
                 Q = E0.random_point()
-                print (f"Restarting because LQ.count(E0(0)) != 0, count = {LQ.count(E0(0))}")
+                print (f"Restarting because LQ.count(E0(0)) != 0, count = {check_LQ.count(E0(0))}")
                 continue
             print(f"Found a candidate for Q")
             
@@ -110,22 +110,27 @@ class MSIDH_Parameters:
             error = False
             for i in range(len(factorization)):
                 l, e = factorization[i]
+                targets = [l**i for i in range(0, e+1)]
+                print(targets)
                 wp = LP[i].weil_pairing(LQ[i], l**e)
-                
-                if wp == 1:
+                mo = [wp * i for i in targets]
+                print(f"Pair {i}: {wp} :: {mo}")
+                if mo.count(1) != 0:
+                    print(f"Pair {i} failed, adjusting !")
                     error = True
                     pt_ = (p+1) / (l**e) * E0.random_point()
                     while True:
                         wp_ = pt_.weil_pairing(LP[i], l**e)
-                        if wp_ == 1:
+                        mo_ = [wp_ * i for i in targets]
+                        print(f"New pair {i}: {wp_} :: {mo_}")
+                        if  mo_.count(1) != 0:
                             pt_ = (p+1) / (l**e) * E0.random_point()
-                            print(pt_)
                             continue
                         else:
                             break
                     Q = Q - pt_
 
-                    print(f"Pair {i} failed, adjusting !")
+                    
             if not error:
                 break
             
