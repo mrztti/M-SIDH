@@ -111,10 +111,8 @@ class MSIDH_Parameters:
             for i in range(len(factorization)):
                 l, e = factorization[i]
                 targets = [l**i for i in range(0, e+1)]
-                print(targets)
                 wp = LP[i].weil_pairing(LQ[i], l**e)
                 mo = [wp * i for i in targets]
-                print(f"Pair {i}: {wp} :: {mo}")
                 if mo.count(1) != 0:
                     print(f"Pair {i} failed, adjusting !")
                     error = True
@@ -122,7 +120,6 @@ class MSIDH_Parameters:
                     while True:
                         wp_ = pt_.weil_pairing(LP[i], l**e)
                         mo_ = [wp_ * i for i in targets]
-                        print(f"New pair {i}: {wp_} :: {mo_}")
                         if  mo_.count(1) != 0:
                             pt_ = (p+1) / (l**e) * E0.random_point()
                             continue
@@ -321,19 +318,18 @@ class MSIDHpArbitrary(MSIDH_Parameters):
         B = prod(B_l)
 
         # Now we have to find largest n such that prod B <= A_l[n:] ** 2
-        
         n = 0
         while B <= prod(A_l[n:]) ** 2:
             n += 1
+
         if security_parameter > (t - n + 1):
             # We have to restart with a larger t
             print(f"retrying with t={t+1}")
             self.__init__(security_parameter, force_t=t+1)
             return
-        print(f"2t = {2*t}")
-
-        f = 1
+        
         # Calculate p
+        f = 1
         p = A * B * f - 1
         while not (is_prime(p) and mod(p, 4) == 3):
             f += 1
@@ -346,7 +342,6 @@ class MSIDHpArbitrary(MSIDH_Parameters):
         (a, ) = F._first_ngens(1)
         print(f"a = {F(1)}")
         E0 = EllipticCurve(j=F(1728))
-        print(E0.a2())
         print(f"{Back.LIGHTMAGENTA_EX}DONE{Style.RESET_ALL}")
         self.name = f"MSIDH_AES-{security_parameter}"
         super().__init__(f, p, E0, A, B, A_l, B_l, F)

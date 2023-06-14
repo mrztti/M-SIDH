@@ -188,6 +188,22 @@ class SIKEp434(SIDH_Parameters):
         curve = EllipticCurve(F, [1,0])
         super().__init__(lA, lB, eA, eB, p, curve)
 
+class SIKEp503(SIDH_Parameters):
+    def __init__(self):
+        lA, eA, lB, eB = 2, 250, 3, 159
+        p = (lA ** eA) * (lB ** eB) - 1
+        F = FiniteField((p, 2), 'x', impl='pari_ffelt')
+        curve = EllipticCurve(F, [1,0])
+        super().__init__(lA, lB, eA, eB, p, curve)
+
+class SIKEp610(SIDH_Parameters):
+    def __init__(self):
+        lA, eA, lB, eB = 2, 305, 3, 192
+        p = (lA ** eA) * (lB ** eB) - 1
+        F = FiniteField((p, 2), 'x', impl='pari_ffelt')
+        curve = EllipticCurve(F, [1,0])
+        super().__init__(lA, lB, eA, eB, p, curve)
+
 class SIKEp751(SIDH_Parameters):
     def __init__(self):
         lA, eA, lB, eB = 2, 372, 3, 239
@@ -196,11 +212,15 @@ class SIKEp751(SIDH_Parameters):
         curve = EllipticCurve(F, [1,0])
         super().__init__(lA, lB, eA, eB, p, curve)
 
+
+
 available_curves ={
     "DeFeo": DeFeo,
     "bSIKE": Baby_SIKE,
     "p182": SIKEp182,
     "p434": SIKEp434,
+    "p503": SIKEp503,
+    "p610": SIKEp610,
     "p751": SIKEp751
 }
 

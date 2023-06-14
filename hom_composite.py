@@ -144,10 +144,8 @@ def _compute_factored_isogeny_prime_power(P, l, e):
         # Test whether l > 500, if yes use velusqrt
         phi = None
         if True: # l <= limit: This is weird. The velusqrt should be working better but it is not.
-            print(f"using regular velu for l = {l}")
             phi = EllipticCurveIsogeny(E, K)
         else:
-            print(f"using velusqrt for l = {l}")
             phi = EllipticCurveHom_velusqrt(E, K)
 
         E = phi.codomain()
