@@ -449,25 +449,17 @@ class MSIDH_Party_B(DH_interface):
 
 
 import os.path
-def create_protocol(settings_class, additional_parameter=None, p_name=None):
+def create_protocol(settings_class, additional_parameter=None):
     timer_start = time.time_ns()
-
-    name = settings_class.__name__
-    if (not p_name==None) and os.path.isfile(f"{p_name}.pickle"):
-        # Load the parameters from file
-        print(f"{Back.MAGENTA}Loading {p_name} parameters from file...{Style.RESET_ALL}")
-        with open(f"{p_name}.pickle", "rb") as f:
-            settings = pickle.load(f)
-    else:
         # Generate the parameters
-        print(f"{Back.MAGENTA}Generating {name} parameters...{Style.RESET_ALL}")
-        if additional_parameter is None:
-            settings = settings_class()
-        else:
-            settings = settings_class(additional_parameter)
-        with open(f"{settings.name}.pickle", "wb") as f:
-            pickle.dump(settings, f)
-
+    settings = None
+    print(f"{Back.MAGENTA}Generating parameters...{Style.RESET_ALL}")
+    if additional_parameter is None:
+        settings = settings_class()
+    else:
+        settings = settings_class(additional_parameter)
+    with open(f"./models/{settings.name}.pickle", "wb") as f:
+        pickle.dump(settings, f)
 
     print(f"{Back.GREEN}DONE{Style.RESET_ALL} {(time.time_ns() - timer_start) / 1e9} s")
 
@@ -477,12 +469,13 @@ def create_protocol(settings_class, additional_parameter=None, p_name=None):
 
 
 def create_protocol_from_file(path):
-    with open(path, "rb") as f:
+    with open("./models/" + path, "rb") as f:
         settings = pickle.load(f)
 
     partyA = MSIDH_Party_A(settings)
     partyB = MSIDH_Party_B(settings)
     return DH_Protocol(partyA, partyB)
+
 
 def create_g128_protocol():
     '''
@@ -491,15 +484,5 @@ def create_g128_protocol():
     time_start = time.time_ns()
     settings = MSIDHp128()
     print(f"{Back.GREEN}DONE{Style.RESET_ALL} {(time.time_ns() - time_start) / 1e9} s")
-    with open(f"MSIDHp128.pickle", "wb") as f:
+    with open(f"./models/MSIDHp128.pickle", "wb") as f:
         pickle.dump(settings, f)
-
-
-def load_128():
-    '''
-    Load the p128 settings
-    '''
-    with open(f"MSIDH_AES-8.pickle", "rb") as f:
-        settings = pickle.load(f)
-    
-    return settings
