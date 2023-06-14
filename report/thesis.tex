@@ -80,7 +80,7 @@ A detailed and thorough mathematical background can be found in the original M-S
         y^2 + a_1 x y + a_3 y = x^3 + a_2 x^2 + a_4 x + a_6
     \end{equation}
 
-    When we take the given equation over a commutative ring, such as a finite field \Fq, we obtain a set of points that constitutes an Abelian group. In the general case, this group is not guaranteed to have the same order as the original commutative ring and furthermore it may be hard to calculate (although we can find lower and upper bounds using Hasse's theorem). This is one of the reasons why supersingular elliptic curves are handy: for a prime $p$, a supersingular curve $E$ over the finite field \Fq defines an Abelian group of points of order $p+1$. We can also further extend this to the case where we take the finite field $\mathbb{F}_{p^2}$: now we have an Abelian group isomorphic to $\mathbb{Z}_{p+1} \times \mathbb{Z}_{p+1}$ \cite{algorithms} for which we can find a basis $\left \langle P, Q \right \rangle$ with both points having order $p+1$.
+    When we take the given equation over a commutative ring, such as a finite field \Fq, we obtain a set of points that constitutes an Abelian group. In the general case, this group is not guaranteed to have the same order as the original commutative ring and furthermore it may be hard to calculate (although we can find lower and upper bounds using Hasse's theorem). This is one of the reasons why supersingular elliptic curves are handy: for a prime $p$, a supersingular curve $E$ over the finite field \Fq defines an Abelian group of points of order $p+1$. We can also further extend this to the case where we take the finite field $\mathbb{F}_{p^2}$: now we have an Abelian group isomorphic to $\mathbb{Z}_{p+1} \times \mathbb{Z}_{p+1}$ \cite{algorithms} for which we can find a basis $\left \langle P,\: Q \right \rangle$ with both points having order $p+1$.
 
     An isogeny is essentially a morphism ("map") between two curves (or possibly to itself). Isogenies are determined (up to isomorphism) by their kernel. The degree of an isogeny can be seen as the cardinality of its kernel. One interesting point is that the higher the isogeny degree, the more computationally complex it becomes to compute. We can also separate isogenies of composite order into a chain of isogenies of prime order in the factors of the original isogeny (which we use to calculate large isogenies efficiently).
 
@@ -105,7 +105,7 @@ A detailed and thorough mathematical background can be found in the original M-S
     This oracle is constructed using a complex theorem (Kani's theorem) \cite{attack}. However it requires two main conditions to work \cite{msidh}:
     \begin{itemize}
         \item The degree $A$ of the secret supersingular isogeny $\phi : E_0\rightarrow E$ must be known.
-        \item The images $\phi (P), \phi (Q)$ of the torsion basis $\left \langle P, Q \right \rangle$ of the B-torsion $E_0 [B]$ (where $B > A$ and are coprime) must be known.
+        \item The images $\phi (P), \phi (Q)$ of the torsion basis $\left \langle P,\: Q \right \rangle$ of the B-torsion $E_0 [B]$ (where $B > A$ and are coprime) must be known.
     \end{itemize}
     
     As a consequence, countermeasures target either one of these conditions.
@@ -150,7 +150,7 @@ The main goal of this project is to provide a proof of concept regarding practic
 
     Another modification which was made was to omit the $2^2$ factor present in the public parameter $A$ as given in the original paper \cite{msidh}. Note that this change was also made in another implementation \cite{compression}. This was done to enable use of the \texttt{velusqrt} algorithm \cite{velusqrt}, as to use this algorithm a requirement is that $A$ and $B$ must be of separable and odd degree. After many attempts, it seems that something isn't right in the Sage \texttt{velusqrt} implementation as discussed in \autoref{discussion:limitations}, and so this change was dropped.
 
-    A final addition for parameter generation was to include a check relative to the base curve used. Indeed, if we take the example of the elliptic curve with j-invariant $1728$, we need that $p \equiv 3 \textrm{ mod } 4$ as an additional condition if we want our curve to be supersingular. We therefore add this check in the cofactor $f$ generation step. Note that similar varying conditions might be necessary depending on the choice of the base curve.
+    A final addition for parameter generation was to include a check relative to the base curve used. Indeed, if we take the example of the elliptic curve with j-invariant $1728$, we need that $p \equiv 3 \textrm{ mod } 4$ as an additional condition if we want our curve to be supersingular. We therefore add this check in the cofactor $f$ generation step. Note that similar varying conditions might be necessary depending on the choice of the base curve, and that the $2^2$ factor present in the public parameter $A$ is usually there to guarantee this specific condition.
 
     \textbf{Important remark:}
     \label{endo_remark}
@@ -164,18 +164,18 @@ The main goal of this project is to provide a proof of concept regarding practic
 
     \subsection{Improving parameter generation}
 
-    Whereas SIDH parameters are considered to be entirely public and reusable, it is interesting to focus on the efficiency of parameter generation of M-SIDH (and MD-SIDH as well) since a functional implementation could potentially require the use of arbitrary curves with non-public endomorphism rings \cite{msidh}. The bottleneck computation of parameter generation comes from the computation of basis points of the torsion subgroups of the chosen curve. The strategy we employ is based on the paper by Costello, Longa and Naehrig \cite{algorithms}: we randomly sample a point on the curve until we find one of order $p+1 = A\cdot B \cdot f$, which we denote P. We do the same for a distinct point Q. We use the properties of Weil pairings to check the linear dependence between the two points, and adjust our point Q until we have two linearly independent points that form a basis of $E(F_{ p^{2}})$. We finally multiply these points by $\frac{p+1}{A}, \frac{p+1}{B}$ respectively to obtain the desired torsion points.
+    Whereas SIDH parameters are considered to be entirely public and reusable, it is interesting to focus on the efficiency of parameter generation of M-SIDH (and MD-SIDH as well) since a functional implementation could potentially require the use of arbitrary curves with non-public endomorphism rings \cite{msidh}. The bottleneck computation of parameter generation comes from the computation of basis points of the torsion subgroups of the chosen curve. The strategy we employ is based on the SIDH paper \cite{original-sidh} and \cite[Corollary 24.31]{pairing}: we randomly sample a point on the curve until we find one of order $p+1 = A\cdot B \cdot f$, which we denote P. We do the same for a distinct point Q. We use the properties of Weil pairings to check the linear dependence between the two points, and adjust our point Q until we have two linearly independent points that form a basis of $E(F_{ p^{2}})$. We finally multiply these points by $\frac{p+1}{A}, \frac{p+1}{B}$ respectively to obtain the desired torsion points.
 
         \subsubsection{Checking the order of a point}
     
-        Because the base curve is supersingular, we know that $E(F_{ p^{2}}) \cong \mathbb{Z}_{p+1} \times \mathbb{Z}_{p+1}$. Instead of computing the exact order of a point, it is sufficient to check that the order of a possible point is exactly $p' = p+1 = A \cdot B \cdot f$. To do this, we construct the following vector:
+        Because the base curve is supersingular, we know that $E(F_{ p^{2}}) \cong \mathbb{Z}_{p+1} \times \mathbb{Z}_{p+1}$. Instead of computing the exact order of a point, it is sufficient to check that the order of a possible point is exactly $p+1 = A \cdot B \cdot f$. To do this, we construct the following vector:
     
          \begin{displaymath}
          \label{eq:lp_star}
-             LP^* = \begin{bmatrix}\frac{p'}{l_i} \cdot P \textrm{  for } l_i \textrm{ the prime factors of } p'\end{bmatrix} 
+             LP^* = \begin{bmatrix}\frac{p+1}{l_i} \cdot P \textrm{  for } l_i \textrm{ the prime factors of } p+1\end{bmatrix} 
          \end{displaymath}
     
-        If none of the elements of the vector are the point at infinity, then P is of order $p'$. Indeed, we can argue from the previously mentioned isomorphism that the maximal order of any point in the curve group has a maximum order of $p+1$ and must also divide this value. Therefore, we can rule out all possible order values by checking if P multiplied by any of the largest divisors of $p'$ (ie. all the $\frac{p'}{l_i}$) results in the point at infinity. 
+        If none of the elements of the vector are the point at infinity, then P is of order $p+1$. Indeed, we can argue from the previously mentioned isomorphism that the maximal order of any point in the curve group has a maximum order of $p+1$ and must also divide this value. Therefore, we can rule out all possible order values by checking if P multiplied by any of the largest divisors of $p+1$ (ie. all the $\frac{p+1}{l_i}$) results in the point at infinity. 
 
         This technique also allows us to pre-compute values that we reuse to construct the following vector used in later steps:
 
@@ -189,12 +189,12 @@ The main goal of this project is to provide a proof of concept regarding practic
 
         \subsubsection{Checking linear independence}
 
-        To check the linear independence of two points P,Q we use the previously constructed vectors $LP, LQ$ derived from \autoref{eq:lp}. We then compute the Weil pairing between each pair of values from theses vectors. If the two points are linearly independent, none of the pairing values should be equal to 1. If we do encounter a pair of values for which the pairing is 1, then we know that we must adjust our candidate Q. Adjusting the point Q is faster than generating a new random point Q, checking that the order is $p+1$ and generating $LQ$ once more. 
+        To check the linear independence of two points P, Q we use the previously constructed vectors $LP,\: LQ$ derived from \autoref{eq:lp}. We then compute the Weil pairing between each pair of values from theses vectors. If the two points are linearly independent, the paring value must have a multiplicative order of $l_i^{e_i}$. If we do encounter a pair of values for which the this test fails, then we know that we must adjust our candidate Q. Adjusting the point Q is faster than generating a new random point Q, checking that the order is $p+1$ and generating $LQ$ once more. 
         The adjustment is made the following way: let $LP_i$ correspond to the failed pairing value:
 
         \begin{enumerate}
             \item Sample a new random point R on the curve, then multiply it by $\frac{p+1}{{l_i}^{e_i}}$.
-            \item Compute the Weil pairing of R and $LP_i$, and restart if it still is 1.
+            \item Compute the Weil pairing of R and $LP_i$, and restart if it still is the pairing check still fails.
             \item Set $Q=Q-R$
         \end{enumerate}
 
@@ -238,7 +238,7 @@ The evaluation of this implementation consists of a time based analysis. In most
 
 \section{Parameter Generation}
 
-    As we can see in \autoref{result:gen_table}, the results for parameter generation are already quite alarming. Indeed, parameter generation for classical NIST-1 level security already takes around 2000 seconds. As we see in \autoref{fig:gen1}, the parameter generation time is exponential relative to the security parameter. Fitting an exponential curve to the results obtained (\autoref{fig:gen2}) we can estimate that generating parameters for $\lambda = 192,256$ should take more than 5 hours and more than a day respectively. For time's sake, we will therefore omit the evaluation for these values (especially since the next section shows that cost of performing the key exchange grows even faster than parameter generation).
+    As we can see in \autoref{result:gen_table}, the results for parameter generation are already quite alarming. Indeed, parameter generation for classical NIST-1 level security already takes around 2000 seconds. As we see in \autoref{fig:gen1}, the parameter generation time is exponential relative to the security parameter. Fitting an exponential curve to the results obtained (\autoref{fig:gen2}) we can estimate that generating parameters for $\lambda = 192,\:256$ should take more than 5 hours and more than a day respectively. For time's sake, we will therefore omit the evaluation for these values (especially since the next section shows that cost of performing the key exchange grows even faster than parameter generation).
     
     \begin{table}[!h]
         \label{result:gen_table}
@@ -302,7 +302,7 @@ The evaluation of this implementation consists of a time based analysis. In most
     
     
     
-    These results are not so far from the results obtained in \cite{compression}. As a point of reference, completing one full exchange using SIDH as implemented in this project takes around 10 seconds for NIST security level 5 (curve \texttt{p751}). If we consider that both parties can compute the isogenies simultaneously, we can consider that this means a practical exchange could happen in 25 minutes. From the results, plotted in \autoref{fig:ex1}, we can see that the key exchange is even more computationally expensive than the parameter generation. We show an estimate in \autoref{fig:ex2} of the computation time for NIST level 3 and 5 of around 16 hours and more than a week respectively. 
+    These results are not so far from the results obtained in \cite{compression}. As a point of reference, completing one full exchange using SIDH as implemented in this project takes around 10 seconds for NIST security level 5 (curve \texttt{p751}). If we consider that both parties can compute the isogenies simultaneously, we can consider that this means a practical exchange could happen in 25 minutes. From the results, plotted in \autoref{fig:ex1}, we can see that the key exchange is even more computationally expensive than the parameter generation. We show an estimate\footnote{Estimated by fitting an exponential curve to points sampled up to $\lambda = 128$ bits} in \autoref{fig:ex2} of the computation time for NIST level 3 and 5 of around 16 hours and more than a week respectively. 
     
     \begin{figure}
         \centering
@@ -317,6 +317,29 @@ The evaluation of this implementation consists of a time based analysis. In most
         \caption{Prediction of key exchange times}
         \label{fig:ex2}
     \end{figure}
+
+    To put these results into perspective, we provide runtimes for some NIST security levels of both SIDH \cite{original-sidh} and CSIDH \cite{csidh} (see \autoref{alt_csidh}) in  \autoref{result:more_table}. The SIDH results were generated using the developed implementation of SIDH, while CSIDH was evaluated using the SIBC library \cite{sibc}.
+
+
+    \begin{table}[!h]
+        \label{result:more_table}
+        \begin{center}
+        \begin{tabular}{| c | c |}
+        \hline
+        \textbf{Scheme \& Classical security level} & \textbf{Key exchange time (s)} \\ 
+        \hline
+
+        SIDH, NIST 1 & 2.852 \\ \hline
+        SIDH, NIST 2 & 4.043 \\ \hline
+        SIDH, NIST 3 & 6.563 \\ \hline
+        SIDH, NIST 5 & 11.26 \\ \hline
+        CSIDH, NIST 1 & 17.63 \\ \hline
+        CSIDH, NIST 5 & 30.02 \\ \hline
+        \hline
+        \end{tabular}
+        \end{center}
+        \caption{Evaluation of some other schemes, on the same machine (10 repetitions)}
+    \end{table}
 
 \section{Discussion on the limitations of the SageMath framework}
 \label{discussion:limitations}
@@ -340,7 +363,8 @@ The evaluation of this implementation consists of a time based analysis. In most
 
 Closely related work includes \cite{compression} (Lin, Lin, Cai, Wang, Zhao). It provides an implementation of M-SIDH which includes key compression to reduce the size of the keys. After examining the source code, it seems that the code is not modular, and includes hard coded values at many points of the implementation. An attempt was made at modularizing the code to leverage the low level elliptic curve arithmetic functions implemented in this project, however the lack of documentation and abstraction made the task much too complex. After thoughtful implementation and optimization of the SageMath source code, this project reached similar run times to \cite{compression}, while being generalized to any correct parameter set. 
 
-It is also interesting to compare the efficiency of other alternative isogeny based post-quantum cryptosystems: C-SIDH \cite{csidh} is one such system. Running an implementation of this scheme \cite{sibc} on the same machine as used to evaluate the implementation of M-SIDH, we find that key exchange for NIST level 1 takes around 15 seconds. Some recent paper even propose and evaluate the use of C-SIDH in TLS communication \cite{csidh-tls}, an application far from conceivable with the current performance of M-SIDH.
+\label{alt_csidh}
+It is also interesting to compare the efficiency of other alternative isogeny based post-quantum cryptosystems: CSIDH \cite{csidh} is one such system. Running an implementation of this scheme \cite{sibc} on the same machine as used to evaluate the implementation of M-SIDH, we find that key exchange for NIST level 1 takes around 15 seconds. Some recent paper even propose and evaluate the use of CSIDH in TLS communication \cite{csidh-tls}, an application far from conceivable with the current performance of M-SIDH.
 
 
 
@@ -349,7 +373,7 @@ It is also interesting to compare the efficiency of other alternative isogeny ba
 \chapter{Conclusion}
 %%%%%%%%%%%%%%%%%%%%
 
-In this project, we have shown that it is possible to implement M-SIDH as a countermeasure to attacks on SIDH. We provided a standalone, generalized implementation which can be used according to any security parameter $\lambda$. M-SIDH involves working over a finite field of much larger size, with isogenies of much larger degrees, compared to SIDH. Understandably, this implies exponentially more computation time for the same level of security, even after optimizing the implementation as much as possible. Even with state of the art algorithms, the key exchange takes almost an hour for NIST security level on a modern machine. Compared to other proposed isogeny based post-quantum cryptosystems, this is impractical. Even if there could be some hope in the development of more efficient isogeny computation, or in building a decentralized trusted system that pre-computes scheme parameters in advance, it is hard to say whether M-SIDH (and as such MD-SIDH) could ever become performance competitive with post-quantum cryptosystems.
+In this project, we have shown that it is possible to implement M-SIDH as a countermeasure to attacks on SIDH. We provided a standalone, generalized implementation which can be used according to any security parameter $\lambda$. M-SIDH involves working over a finite field of much larger size, with isogenies of much larger degrees, compared to SIDH. Understandably, this implies more computation time for the same level of security, even after optimizing the implementation as much as possible. Even with state of the art algorithms, the key exchange takes almost an hour for NIST security level on a modern machine. Compared to other proposed isogeny based post-quantum cryptosystems like CSIDH. Even if there could be some hope in the development of more efficient isogeny computation, or in building a decentralized trusted system that pre-computes scheme parameters in advance, it is hard to say whether M-SIDH (and as such MD-SIDH) could ever become performance competitive with post-quantum cryptosystems.
 
 
 
